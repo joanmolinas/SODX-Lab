@@ -1,4 +1,4 @@
--module(muty).
+-module(john).
 -export([start/3, stop/0]).
 
 start(Lock, Sleep, Work) ->
