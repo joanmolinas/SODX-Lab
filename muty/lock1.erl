@@ -45,7 +45,7 @@ ok(Waiting) ->
         fun({F,R}) ->
             F ! {ok, R}
         end,
-    Waiting).
+        Waiting).
 
 held(Nodes, Waiting) ->
     receive
