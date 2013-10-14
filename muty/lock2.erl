@@ -1,4 +1,4 @@
--module(lock1).
+-module(lock2).
 -export([init/2]).
 
 init(id, Nodes) ->
