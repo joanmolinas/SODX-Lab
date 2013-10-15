@@ -1,37 +1,44 @@
 -module(lock2).
 -export([init/2]).
 
-init(id, Nodes) ->
-    open(Nodes).
-open(Nodes) ->
+init(Id, Nodes) ->
+    open(Id, Nodes).
+open(Id, Nodes) ->
     receive
         {take, Master} ->
-            Refs = requests(Nodes),
-            wait(Nodes, Master, Refs, []);
-        {request, From, Ref} ->
+            Refs = requests(Id, Nodes),
+            wait(Id, Nodes, Master, Refs, []);
+        {request, From, FromId, Ref} ->
             From ! {ok, Ref},
-            open(Nodes);
+            open(Id, Nodes);
         stop ->
             ok
     end.
 
-requests(Nodes) ->
+requests(Id, Nodes) ->
     lists:map(
         fun(P) ->
             R = make_ref(),
-            P ! {request, self(), R},
+            P ! {request, self(), Id, R},
             R
         end,
         Nodes).
 
-wait(Nodes, Master, [], Waiting) ->
+wait(Id, Nodes, Master, [], Waiting) ->
     Master ! taken,
-    held(Nodes, Waiting);
+    held(Id, Nodes, Waiting);
 
-wait(Nodes, Master, Refs, Waiting) ->
+wait(Id, Nodes, Master, Refs, Waiting) ->
     receive
-        {request, From, Ref} ->
-            wait(Nodes, Master, Refs, [{From, Ref}|Waiting]);
+        {request, From, FromId, Ref} ->
+            if
+                FromId < Id ->
+                    From ! {ok, Ref};
+                    Refs2 = requests(Id, [From])
+                    wait(Nodes, Master, lists:merge(Refs, Refs2), Waiting);
+                true ->
+                    wait(Id, Nodes, Master, Refs, [{From, Ref}|Waiting]);
+            end
         {ok, Ref} ->
             Refs2 = lists:delete(Ref, Refs),
             wait(Nodes, Master, Refs2, Waiting);
@@ -47,11 +54,11 @@ ok(Waiting) ->
         end,
         Waiting).
 
-held(Nodes, Waiting) ->
+held(Id, Nodes, Waiting) ->
     receive
-        {request, From, Ref} ->
-            held(Nodes, [{From, Ref}|Waiting]);
+        {request, From, FromId, Ref} ->
+            held(Id, Nodes, [{From, Ref}|Waiting]);
         release ->
             ok(Waiting),
-            open(Nodes)
+            open(Id, Nodes)
     end.
