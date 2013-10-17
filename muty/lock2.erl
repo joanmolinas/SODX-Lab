@@ -8,7 +8,7 @@ open(Id, Nodes) ->
         {take, Master} ->
             Refs = requests(Id, Nodes),
             wait(Id, Nodes, Master, Refs, []);
-        {request, From, FromId, Ref} ->
+        {request, From, _, Ref} ->
             From ! {ok, Ref},
             open(Id, Nodes);
         stop ->
@@ -33,18 +33,18 @@ wait(Id, Nodes, Master, Refs, Waiting) ->
         {request, From, FromId, Ref} ->
             if
                 FromId < Id ->
-                    From ! {ok, Ref};
-                    Refs2 = requests(Id, [From])
-                    wait(Nodes, Master, lists:merge(Refs, Refs2), Waiting);
+                    From ! {ok, Ref},
+                    Refs2 = requests(Id, [From]),
+                    wait(Id, Nodes, Master, lists:merge(Refs, Refs2), Waiting);
                 true ->
-                    wait(Id, Nodes, Master, Refs, [{From, Ref}|Waiting]);
-            end
+                    wait(Id, Nodes, Master, Refs, [{From, Ref}|Waiting])
+            end;
         {ok, Ref} ->
             Refs2 = lists:delete(Ref, Refs),
-            wait(Nodes, Master, Refs2, Waiting);
+            wait(Id, Nodes, Master, Refs2, Waiting);
         release ->
             ok(Waiting),
-            open(Nodes)
+            open(Id, Nodes)
     end.
 
 ok(Waiting) ->
@@ -56,7 +56,7 @@ ok(Waiting) ->
 
 held(Id, Nodes, Waiting) ->
     receive
-        {request, From, FromId, Ref} ->
+        {request, From, _, Ref} ->
             held(Id, Nodes, [{From, Ref}|Waiting]);
         release ->
             ok(Waiting),
