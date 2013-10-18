@@ -3,41 +3,35 @@
 -define(withdrawal, 8000).
 
 init(Name, Lock, Seed, Sleep, Work) ->
-    Gui = spawn(gui, init, [Name]),
     random:seed(Seed, Seed, Seed),
-    Taken = worker(Name, Lock, [], Sleep, Work, Gui),
-    Gui ! stop,
+    Taken = worker(Name, Lock, [], Sleep, Work),
     terminate(Name, Taken).
 
-worker(Name, Lock, Taken, Sleep, Work, Gui) ->
+worker(Name, Lock, Taken, Sleep, Work) ->
     Wait = random:uniform(Sleep),
     receive
         stop ->
             Taken
     after Wait ->
-            T = critical(Name, Lock, Work, Gui),
-            worker(Name, Lock, [T|Taken], Sleep, Work, Gui)
+            T = critical(Name, Lock, Work),
+            worker(Name, Lock, [T|Taken], Sleep, Work)
     end.
 
 
-critical(Name, Lock, Work, Gui) ->
+critical(Name, Lock, Work) ->
     T1 = now(),
-    Gui ! waiting,
     Lock ! {take, self()},
     receive
         taken ->
             T = elapsed(T1),
             io:format("~s: lock taken in ~w ms~n",[Name, T]),
-            Gui ! taken,
             timer:sleep(random:uniform(Work)),
             io:format("~s: lock released~n",[Name]),
-            Gui ! leave,
             Lock ! release,
             {taken, T}
     after ?withdrawal ->
             io:format("~s: giving up~n",[Name]),
             Lock ! release,
-            Gui ! leave,
             no
     end.
 
