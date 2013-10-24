@@ -25,7 +25,7 @@ init(Id, Grp, Master) ->
 leader(Id, Master, Peers) ->
   receive
     {mcast, Msg} ->
-      bcast(Id, Msg, Peers),
+      bcast(Id, {msg, Msg}, Peers),
       Master ! {deliver, Msg},
       leader(Id, Master, Peers);
     {join, Peer} ->
