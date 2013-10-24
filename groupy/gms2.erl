@@ -1,18 +1,25 @@
 -module(gms2).
 -export([start/1, start/2]).
 
+-define(arghh, 100).
+
 start(Id) ->
+  Rnd = random:uniform(1000),
   Self = self(),
-  spawn_link(fun() -> init(Id, Self) end).
+  spawn_link(fun()-> init(Id, Rnd, Self) end).
 
-start(Id, Grp) ->
-  Self = self(),
-  spawn_link(fun() -> init(Id, Grp, Self) end).
-
-init(Id, Master) ->
+init(Id, Rnd, Master) ->
+  random:seed(Rnd, Rnd, Rnd),
   leader(Id, Master, []).
 
-init(Id, Grp, Master) ->
+
+start(Id, Grp) ->
+  Rnd = random:uniform(1000),
+  Self = self(),
+  spawn_link(fun() -> init(Id, Grp, Rnd, Self) end).
+
+init(Id, Grp, Rnd, Master) ->
+  random:seed(Rnd, Rnd, Rnd),
   Self = self(),
   Grp ! {join, Self},
   receive
@@ -40,8 +47,23 @@ leader(Id, Master, Peers) ->
       io:format("leader ~w: strange message ~w~n", [Id, Error])
   end.
 
-bcast(_, Msg, Nodes) ->
-  lists:foreach(fun(Node) -> Node ! Msg end, Nodes).
+bcast(Id, Msg, Nodes) ->
+  lists:foreach(
+    fun(Node) ->
+      Node ! Msg,
+      crash(Id)
+    end,
+    Nodes
+  ).
+
+crash(Id) ->
+  case random:uniform(?arghh) of
+    ?arghh ->
+      io:format("leader ~w: crash~n", [Id]),
+      exit(no_luck);
+    _ ->
+      ok
+  end.
 
 joining(Id, Master, Peer, Peers) ->
   receive
