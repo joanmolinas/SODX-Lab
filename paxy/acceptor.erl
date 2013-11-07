@@ -12,9 +12,9 @@ init(Name, Seed, PanelId) ->
 acceptor(Name, Promise, Voted, Accepted, PanelId) ->
   receive
    {prepare, Proposer, Round} ->
-       case order:gr(..., ...) of
+       case order:gr(Round, Promise) of
            true ->
-               ... ! {promise, ..., ..., ...},
+               Proposer ! {promise, Round, Voted, Accepted},
                % Update gui
                if
                    Accepted == na ->
@@ -22,44 +22,46 @@ acceptor(Name, Promise, Voted, Accepted, PanelId) ->
                    true ->
                        Colour = Accepted
                end,
-   io:format("[Acceptor ~w] set gui: voted ~w promise ~w colour ~w~n",
-                       [Name, ..., ..., Accepted]),
-                       PanelId ! {updateAcc, "Round voted: "
-   ++ lists:flatten(io_lib:format("~p", [Voted])), "Cur. Promise: "
-   ++ lists:flatten(io_lib:format("~p", [...])), Colour},
-               acceptor(Name, ..., Voted, Accepted, PanelId);
+               io:format("[Acceptor ~w] set gui: voted ~w promise ~w colour ~w~n", [Name, Voted, Round, Accepted]),
+               PanelId ! {
+                   updateAcc, "Round voted: " ++ lists:flatten(io_lib:format("~p", [Voted])),
+                   "Cur. Promise: " ++ lists:flatten(io_lib:format("~p", [Round])),
+                   Colour
+               },
+               acceptor(Name, Round, Voted, Accepted, PanelId);
            false ->
-               ... ! {sorry, {prepare, ...}},
-               acceptor(Name, ..., Voted, Accepted, PanelId)
+               Proposer ! {sorry, {prepare, Voted}},
+               acceptor(Name, Promise, Voted, Accepted, PanelId)
        end;
 
- {accept, Proposer, Round, Proposal} ->
-     case order:goe(..., ...) of
-         true ->
-             ... ! {vote, ...},
-             case order:goe(..., ...) of
-                 true ->
-                  % Update gui
-io:format("[Acceptor ~w] set gui: voted ~w promise ~w colour ~w~n",
-                     [Name, ..., ..., ...]),
-                     PanelId ! {updateAcc, "Round voted: "
-++ lists:flatten(io_lib:format("~p", [...])), "Cur. Promise: "
-++ lists:flatten(io_lib:format("~p", [Promise])), ...},
-                     acceptor(Name, Promise, ..., ..., PanelId);
-                 false ->
-                     % Update gui
-io:format("[Acceptor ~w] set gui: voted ~w promise ~w colour ~w~n",
-                     [Name, ..., ..., ...]),
-                     PanelId ! {updateAcc, "Round voted: "
-++ lists:flatten(io_lib:format("~p", [...])), "Cur. Promise: "
-++ lists:flatten(io_lib:format("~p", [Promise])), ...},
-                     acceptor(Name, Promise, ..., ..., PanelId)
-             end;
-         false ->
-             ... ! {sorry, {accept, ...}},
-             acceptor(Name, Promise, ..., ..., PanelId)
-     end;
-
+   {accept, Proposer, Round, Proposal} ->
+       case order:goe(Round, Promise) of
+           true ->
+               Proposer ! {vote, Round},
+               case order:goe(Round, Voted) of
+                   true ->
+                       % Update gui
+                       io:format("[Acceptor ~w] set gui: voted ~w promise ~w colour ~w~n", [Name, Round, Promise, Proposal]),
+                       PanelId ! {
+                           updateAcc, "Round voted: " ++ lists:flatten(io_lib:format("~p", [Round])),
+                           "Cur. Promise: " ++ lists:flatten(io_lib:format("~p", [Promise])),
+                           Proposal
+                       },
+                       acceptor(Name, Promise, Round, Proposal, PanelId);
+                   false ->
+                       % Update gui
+                        io:format("[Acceptor ~w] set gui: voted ~w promise ~w colour ~w~n", [Name, Voted, Promise, Accepted]),
+                        PanelId ! {
+                            updateAcc, "Round voted: " ++ lists:flatten(io_lib:format("~p", [Round])),
+                            "Cur. Promise: " ++ lists:flatten(io_lib:format("~p", [Promise])),
+                            Accepted
+                        },
+                       acceptor(Name, Promise, Voted, Accepted, PanelId)
+                   end;
+           false ->
+               Proposer ! {sorry, {accept, Voted}},
+               acceptor(Name, Promise, Voted, Accepted, PanelId)
+       end;
   stop ->
      ok
 end.

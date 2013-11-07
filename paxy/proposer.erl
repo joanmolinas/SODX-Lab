@@ -10,33 +10,36 @@ init(Name, Proposal, Acceptors, Seed, PanelId) ->
     round(Name, ?backoff, Round, Proposal, Acceptors, PanelId).
 round(Name, Backoff, Round, Proposal, Acceptors, PanelId) ->
     % Update gui
-    io:format("[Proposer ~w] set gui: Round ~w Proposal ~w~n",
-    [Name, Round, Proposal]),
-    PanelId ! {updateProp, "Round: "
-    ++ lists:flatten(io_lib:format("~p", [Round])), "Proposal: "
-    ++ lists:flatten(io_lib:format("~p", [Proposal])), Proposal},
-    case ballot(Name, ..., ..., ..., PanelId) of
+    io:format("[Proposer ~w] set gui: Round ~w Proposal ~w~n", [Name, Round, Proposal]),
+    PanelId ! {
+        updateProp, "Round: " ++ lists:flatten(io_lib:format("~p", [Round])),
+        "Proposal: " ++ lists:flatten(io_lib:format("~p", [Proposal])),
+        Proposal
+    },
+    case ballot(Name, Round, Proposal, Acceptors, PanelId) of
         {ok, Decision} ->
             io:format("[Proposer ~w] ~w decided ~w in round ~w~n",
             [Name, Acceptors, Decision, Round]),
             {ok, Decision};
         abort ->
-     timer:sleep(random:uniform(Backoff)),
-     Next = order:inc(...),
-     round(Name, (2*Backoff), ..., Proposal, Acceptors, PanelId)
+    timer:sleep(random:uniform(Backoff)),
+    Next = order:inc(Round),
+    round(Name, (2*Backoff), Next, Proposal, Acceptors, PanelId)
 end.
 ballot(Name, Round, Proposal, Acceptors, PanelId) ->
-    prepare(..., ...),
-    Quorum = (length(...) div 2) + 1,
+    prepare(Round,Acceptors),
+    Quorum = (length(Acceptors) div 2) + 1,
     Max = order:null(),
-    case collect(..., ..., ..., ...) of
+    case collect(Quorum, Round, Max, Proposal) of
         {accepted, Value} ->
             % update gui
             io:format("[Proposer ~w] set gui: Round ~w Proposal ~w~n",
             [Name, Round, Value]),
-            PanelId ! {updateProp, "Round: "
-            ++ lists:flatten(io_lib:format("~p", [Round])), "Proposal: "
-            ++ lists:flatten(io_lib:format("~p", [Value])), Value},
+            PanelId ! {
+                updateProp, "Round: " ++ lists:flatten(io_lib:format("~p",
+                [Round])), "Proposal: " ++ lists:flatten(io_lib:format("~p", [Value])),
+                Value
+            },
             accept(..., ..., ...),
             case vote(..., ...) of
                 ok ->
