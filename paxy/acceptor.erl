@@ -38,7 +38,9 @@ acceptor(Name, Promise, Voted, Accepted, PanelId) ->
         false ->
           if
             ?sorry ->
-              Proposer ! {sorry, {prepare, Voted}}
+              Proposer ! {sorry, {prepare, Voted}};
+            true ->
+              false
           end,
           acceptor(Name, Promise, Voted, Accepted, PanelId)
       end;
@@ -73,7 +75,9 @@ acceptor(Name, Promise, Voted, Accepted, PanelId) ->
            false ->
                if
                  ?sorry ->
-                   Proposer ! {sorry, {accept, Voted}}
+                   Proposer ! {sorry, {accept, Voted}};
+                 true ->
+                   false
                end,
                acceptor(Name, Promise, Voted, Accepted, PanelId)
        end;
