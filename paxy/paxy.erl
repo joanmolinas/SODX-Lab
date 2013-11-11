@@ -1,15 +1,14 @@
 -module(paxy).
 -export([start/1, stop/0, stop/1]).
 -define(RED, {255,0,0}).
--define(BLUE, {0,0,255}).
 -define(GREEN, {0,255,0}).
+-define(BLUE, {0,0,255}).
 start(Seed) ->
     AcceptorNames = ["Acceptor 1", "Acceptor 2", "Acceptor 3",
     "Acceptor 4", "Acceptor 5"],
     AccRegister = [a, b, c, d, e],
     ProposerNames = ["Proposer 1", "Proposer 2", "Proposer 3"],
-    PropInfo = [{kurtz, ?RED, 10}, {kilgore, ?GREEN, 2},
-    {willard, ?BLUE, 3}],
+    PropInfo = [{kurtz, ?RED, 10}, {kilgore, ?GREEN, 2}, {willard, ?BLUE, 3}],
     % computing panel heights
     AccPanelHeight = length(AcceptorNames)*50 + 20, %plus the spacer value
     PropPanelHeight = length(ProposerNames)*50 + 20,

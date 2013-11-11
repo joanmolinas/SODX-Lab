@@ -1,5 +1,8 @@
 -module(acceptor).
 -export([start/3]).
+
+-define(delay, 3000).
+
 start(Name, Seed, PanelId) ->
     spawn(fun() -> init(Name, Seed, PanelId) end).
 init(Name, Seed, PanelId) ->
@@ -11,31 +14,36 @@ init(Name, Seed, PanelId) ->
 
 acceptor(Name, Promise, Voted, Accepted, PanelId) ->
   receive
-   {prepare, Proposer, Round} ->
-       case order:gr(Round, Promise) of
-           true ->
-               Proposer ! {promise, Round, Voted, Accepted},
-               % Update gui
-               if
-                   Accepted == na ->
-                       Colour = {0,0,0};
-                   true ->
-                       Colour = Accepted
-               end,
-               io:format("[Acceptor ~w] set gui: voted ~w promise ~w colour ~w~n", [Name, Voted, Round, Accepted]),
-               PanelId ! {
-                   updateAcc, "Round voted: " ++ lists:flatten(io_lib:format("~p", [Voted])),
-                   "Cur. Promise: " ++ lists:flatten(io_lib:format("~p", [Round])),
-                   Colour
-               },
-               acceptor(Name, Round, Voted, Accepted, PanelId);
-           false ->
-               Proposer ! {sorry, {prepare, Voted}},
-               acceptor(Name, Promise, Voted, Accepted, PanelId)
-       end;
+    {prepare, Proposer, Round} ->
+      R = random:uniform(?delay),
+      timer:sleep(R),
+      case order:gr(Round, Promise) of
+        true ->
+           Proposer ! {promise, Round, Voted, Accepted},
+           % Update gui
+           if
+               Accepted == na ->
+                   Colour = {0,0,0};
+               true ->
+                   Colour = Accepted
+           end,
+           io:format("[Acceptor ~w] set gui: voted ~w promise ~w colour ~w~n", [Name, Voted, Round, Accepted]),
+           PanelId ! {
+               updateAcc, "Round voted: " ++ lists:flatten(io_lib:format("~p", [Voted])),
+               "Cur. Promise: " ++ lists:flatten(io_lib:format("~p", [Round])),
+               Colour
+           },
+           acceptor(Name, Round, Voted, Accepted, PanelId);
+        false ->
+           Proposer ! {sorry, {prepare, Voted}},
+           acceptor(Name, Promise, Voted, Accepted, PanelId)
+      end;
 
-   {accept, Proposer, Round, Proposal} ->
-       case order:goe(Round, Promise) of
+    {accept, Proposer, Round, Proposal} ->
+      R = random:uniform(?delay),
+      timer:sleep(R),
+
+      case order:goe(Round, Promise) of
            true ->
                Proposer ! {vote, Round},
                case order:goe(Round, Voted) of
