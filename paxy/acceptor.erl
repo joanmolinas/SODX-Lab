@@ -3,6 +3,8 @@
 
 -define(delay, 50).
 -define(sorry, false).
+-define(drop_promise, 200000).
+-define(drop_votes, 200000).
 
 start(Name, Seed, PanelId) ->
     spawn(fun() -> init(Name, Seed, PanelId) end).
@@ -20,7 +22,13 @@ acceptor(Name, Promise, Voted, Accepted, PanelId) ->
       timer:sleep(R),
       case order:gr(Round, Promise) of
         true ->
-           Proposer ! {promise, Round, Voted, Accepted},
+          case random:uniform(?drop_promise) of
+            ?drop_promise ->
+              io:format("Promise dropped~n");
+            _ ->
+              Proposer ! {promise, Round, Voted, Accepted}
+            end,
+
            % Update gui
            if
                Accepted == na ->
@@ -51,7 +59,13 @@ acceptor(Name, Promise, Voted, Accepted, PanelId) ->
 
       case order:goe(Round, Promise) of
            true ->
-               Proposer ! {vote, Round},
+             case random:uniform(?drop_promise) of
+               ?drop_promise ->
+                 io:format("Accept dropped~n");
+               _ ->
+                 Proposer ! {vote, Round}
+               end,
+
                case order:goe(Round, Voted) of
                    true ->
                        % Update gui
