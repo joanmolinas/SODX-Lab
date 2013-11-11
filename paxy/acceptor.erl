@@ -1,7 +1,8 @@
 -module(acceptor).
 -export([start/3]).
 
--define(delay, 3000).
+-define(delay, 50).
+-define(sorry, false).
 
 start(Name, Seed, PanelId) ->
     spawn(fun() -> init(Name, Seed, PanelId) end).
@@ -35,8 +36,11 @@ acceptor(Name, Promise, Voted, Accepted, PanelId) ->
            },
            acceptor(Name, Round, Voted, Accepted, PanelId);
         false ->
-           Proposer ! {sorry, {prepare, Voted}},
-           acceptor(Name, Promise, Voted, Accepted, PanelId)
+          if
+            ?sorry ->
+              Proposer ! {sorry, {prepare, Voted}}
+          end,
+          acceptor(Name, Promise, Voted, Accepted, PanelId)
       end;
 
     {accept, Proposer, Round, Proposal} ->
@@ -67,11 +71,12 @@ acceptor(Name, Promise, Voted, Accepted, PanelId) ->
                        acceptor(Name, Promise, Voted, Accepted, PanelId)
                    end;
            false ->
-               Proposer ! {sorry, {accept, Voted}},
+               if
+                 ?sorry ->
+                   Proposer ! {sorry, {accept, Voted}}
+               end,
                acceptor(Name, Promise, Voted, Accepted, PanelId)
        end;
   stop ->
      ok
 end.
-
-
