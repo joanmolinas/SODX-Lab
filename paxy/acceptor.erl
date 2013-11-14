@@ -1,7 +1,7 @@
 -module(acceptor).
 -export([start/3]).
 
--define(delay, 1500).
+-define(delay, 100).
 -define(sorry, false).
 -define(drop_promise, 200000).
 -define(drop_votes, 200000).
