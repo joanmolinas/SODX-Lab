@@ -1,5 +1,5 @@
 -module(paxy).
--export([start/1, stop/0, stop/1]).
+-export([start/1, crash/2, stop/0, stop/1]).
 -define(RED, {255,0,0}).
 -define(GREEN, {0,255,0}).
 -define(BLUE, {0,0,255}).
@@ -57,3 +57,12 @@ stop(Name) ->
             Pid ! stop
     end.
 
+crash(Name, Seed) ->
+  case whereis(Name) of
+    undefined ->
+      ok;
+    Pid ->
+      unregister(Name),
+      exit(Pid, "crash"),
+      register(Name, acceptor:start(Name, Seed, na))
+  end.

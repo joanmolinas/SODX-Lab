@@ -104,4 +104,9 @@ accept(Round, Proposal, Acceptors) ->
   lists:map(Fun, Acceptors).
 
 send(Name, Message) ->
-    Name ! Message.
+    case whereis(Name) of
+      undefined ->
+        down;
+      Pid ->
+        Pid ! Message
+    end.
