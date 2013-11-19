@@ -62,6 +62,7 @@ crash(Name, Seed) ->
     undefined ->
       ok;
     Pid ->
+      io:format("Acceptor with name ~s crashed~n", [Name]),
       unregister(Name),
       exit(Pid, "crash"),
       register(Name, acceptor:start(Name, Seed, na))

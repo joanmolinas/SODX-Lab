@@ -1,7 +1,7 @@
 -module(acceptor).
 -export([start/3]).
 
--define(delay, 100).
+-define(delay, 1500).
 -define(sorry, false).
 -define(drop_promise, 200000).
 -define(drop_votes, 200000).
@@ -9,8 +9,9 @@
 start(Name, Seed, PanelId) ->
     spawn(fun() -> init(Name, Seed, PanelId) end).
 init(Name, Seed, na) ->
-    random:seed(Seed, Seed, Seed),
+    io:format("Acceptor with name ~s is up again~n", [Name]),
 
+    random:seed(Seed, Seed, Seed),
     {Promise, Voted, Accepted, PanelId} = pers:read(Name),
     acceptor(Name, Promise, Voted, Accepted, PanelId);
 init(Name, Seed, PanelId) ->
