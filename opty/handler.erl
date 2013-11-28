@@ -16,16 +16,14 @@ handler(Client, Validator, Store, Reads, Writes) ->
           Client ! {value, Ref, Value},
           handler(Client, Validator, Store, Reads, Writes);
         false ->
-          N ! {read, Ref, self()},
+          element(N, Store) ! {read, Ref, self()},
           handler(Client, Validator, Store, Reads, Writes)
       end;
     {Ref, Entry, Value, Time} ->
-      Client ! {read, Ref, Value},
+      Client ! {value, Ref, Value},
       handler(Client, Validator, Store, [{Entry, Time}|Reads], Writes);
     {write, N, Value} ->
-      %% TODO: ADD SOME CODE HERE AND COMPLETE NEXT LINE
-
-      Added = lists:keystore(N, 1, Writes, {N, ..., Value}),
+      Added = lists:keystore(N, 1, Writes, {N, element(N, Store), Value}),
       handler(Client, Validator, Store, Reads, Added);
     {commit, Ref} ->
       Validator ! {validate, Ref, Reads, Writes, Client};

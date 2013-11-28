@@ -10,14 +10,12 @@ open(Name, Entries, Updates, Server, Total, Ok) ->
   Server ! {open, self()},
   receive
     {stop, From} ->
-      io:format("~w: Transactions TOTAL:~w, OK:~w, -> ~w % ~n",
-        [Name, Total, Ok, 100 * Ok / Total]),
+      io:format("~w: Transactions TOTAL:~w, OK:~w, -> ~w % ~n", [Name, Total, Ok, 100 * Ok / Total]),
       From ! {done, self()},
       ok;
     {transaction, Validator, Store} ->
       Handler = handler:start(self(), Validator, Store),
-      do_transactions(Name, Entries, Updates, Server, Handler,
-        Total, Ok, Updates)
+      do_transactions(Name, Entries, Updates, Server, Handler, Total, Ok, Updates)
   end.
 
 % Commit transaction
