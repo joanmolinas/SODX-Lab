@@ -1,10 +1,10 @@
 -module(client).
--export([start/4]).
+-export([start/5]).
 
-start(Name, Entries, Updates, Server) ->
-  spawn(fun() -> open(Name, Entries, Updates, Server, 0, 0) end).
+start(Name, Entries, Updates, Server, CommitDelay) ->
+  spawn(fun() -> open(Name, Entries, Updates, Server, 0, 0, CommitDelay) end).
 
-open(Name, Entries, Updates, Server, Total, Ok) ->
+open(Name, Entries, Updates, Server, Total, Ok, CommitDelay) ->
   {A1, A2, A3} = now(),
   random:seed(A1, A2, A3),
   Server ! {open, self()},
@@ -15,32 +15,31 @@ open(Name, Entries, Updates, Server, Total, Ok) ->
       ok;
     {transaction, Validator, Store} ->
       Handler = handler:start(self(), Validator, Store),
-      do_transactions(Name, Entries, Updates, Server, Handler, Total, Ok, Updates)
+      do_transactions(Name, Entries, Updates, Server, Handler, Total, Ok, Updates, CommitDelay)
   end.
 
 % Commit transaction
-do_transactions(Name, Entries, Updates, Server, Handler, Total, Ok, 0) ->
-%io:format("~w: Commit: TOTAL ~w, OK ~w~n", [Name, Total, Ok]),
-%timer:sleep(Name*10),
+do_transactions(Name, Entries, Updates, Server, Handler, Total, Ok, 0, CommitDelay) ->
+  timer:sleep(CommitDelay),
   Ref = make_ref(),
   Handler ! {commit, Ref},
   Result = receiveCommitValue(Ref),
   if
     Result == ok ->
-      open(Name, Entries, Updates, Server, Total + 1, Ok + 1);
+      open(Name, Entries, Updates, Server, Total + 1, Ok + 1, CommitDelay);
     true ->
-      open(Name, Entries, Updates, Server, Total + 1, Ok)
+      open(Name, Entries, Updates, Server, Total + 1, Ok, CommitDelay)
   end;
 
 % Reads and Writes
-do_transactions(Name, Entries, Updates, Server, Handler, Total, Ok, N) ->
+do_transactions(Name, Entries, Updates, Server, Handler, Total, Ok, N, CommitDelay) ->
 %io:format("~w: R/W: TOTAL ~w, OK ~w, N ~w~n", [Name, Total, Ok, N]),
   Ref = make_ref(),
   Num = random:uniform(Entries),
   Handler ! {read, Ref, Num},
   Value = receiveValue(Ref),
   Handler ! {write, Num, Value + 1},
-  do_transactions(Name, Entries, Updates, Server, Handler, Total, Ok, N - 1).
+  do_transactions(Name, Entries, Updates, Server, Handler, Total, Ok, N - 1, CommitDelay).
 
 receiveCommitValue(Ref) ->
   receive

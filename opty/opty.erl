@@ -1,13 +1,13 @@
 -module(opty).
--export([start/4, stop/1]).
+-export([start/5, stop/1]).
 
 %% Clients: Number of concurrent clients in the system
 %% Entries: Number of entries in the store
 %% Updates: Number of write operations per transaction
 %% Time: Duration of the experiment (in secs)
-start(Clients, Entries, Updates, Time) ->
+start(Clients, Entries, Updates, Time, CommitDelay) ->
   register(s, server:start(Entries)),
-  L = startClients(Clients, [], Entries, Updates),
+  L = startClients(Clients, [], Entries, Updates, CommitDelay),
   io:format(
     "Starting: ~w CLIENTS, ~w ENTRIES, ~w UPDATES PER TRANSACTION,~nDURATION ~w s ~n",
     [Clients, Entries, Updates, Time]),
@@ -19,11 +19,11 @@ stop(L) ->
   stopClients(L),
   s ! stop.
 
-startClients(0, L, _, _) ->
+startClients(0, L, _, _, _) ->
   L;
-startClients(Clients, L, Entries, Updates) ->
-  Pid = client:start(Clients, Entries, Updates, s),
-  startClients(Clients - 1, [Pid|L], Entries, Updates).
+startClients(Clients, L, Entries, Updates, CommitDelay) ->
+  Pid = client:start(Clients, Entries, Updates, s, CommitDelay),
+  startClients(Clients - 1, [Pid|L], Entries, Updates, CommitDelay).
 
 stopClients([]) -> ok;
 stopClients([Pid|L]) ->
