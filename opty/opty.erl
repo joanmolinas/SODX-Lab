@@ -1,19 +1,22 @@
 -module(opty).
--export([start/5, start/6, stop/1]).
+-export([start/5, start/7, start_entry_percentage/6, stop/1]).
 
 %% Clients: Number of concurrent clients in the system
 %% Entries: Number of entries in the store
 %% Updates: Number of write operations per transaction
 %% Time: Duration of the experiment (in secs)
+start_entry_percentage(Clients, Entries, Updates, Time, CommitDelay, EntryPercentage) when EntryPercentage =< 100, EntryPercentage >= 0 ->
+  start(Clients, Entries, Updates, Updates, Time, CommitDelay, EntryPercentage).
 start(Clients, Entries, Updates, Time, CommitDelay) ->
-  start(Clients, Entries, Updates, Updates, Time, CommitDelay).
+  start(Clients, Entries, Updates, Updates, Time, CommitDelay, 100).
 
-start(Clients, Entries, ReadUpdates, WriteUpdates, Time, CommitDelay) ->
-  register(s, server:start(Entries)),
-  L = startClients(Clients, [], Entries, ReadUpdates, WriteUpdates, CommitDelay),
+start(Clients, Entries, ReadUpdates, WriteUpdates, Time, CommitDelay, EntryPercentage) ->
+  NumRandomEntries = round(EntryPercentage * Entries / 100),
+  register(s, server2:start(Entries, NumRandomEntries)),
+  L = startClients(Clients, [], NumRandomEntries, ReadUpdates, WriteUpdates, CommitDelay),
   io:format(
-    "Starting: ~w CLIENTS, ~w ENTRIES, ~w READ UPDATES PER TRANSACTION, ~w WRITE UPDATES PER TRANSACTION,~nDURATION ~w s ~n",
-    [Clients, Entries, ReadUpdates, WriteUpdates, Time]),
+    "Starting: ~w CLIENTS, ~w ENTRIES, ~w NUM RANDOM ENTRIES, ~w READ UPDATES PER TRANSACTION, ~w WRITE UPDATES PER TRANSACTION,~nDURATION ~w s ~n",
+    [Clients, Entries, NumRandomEntries, ReadUpdates, WriteUpdates, Time]),
   timer:sleep(Time * 1000),
   stop(L).
 
