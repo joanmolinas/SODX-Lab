@@ -23,22 +23,29 @@ schedule_stabilize() ->
   timer:send_interval(?Stabilize, self(), stabilize).
 
 node(MyKey, Predecessor, Successor) ->
+  io:format("In node, MyKey = ~w, Pred = ~w and Successor = ~w ~n", [MyKey, Predecessor, Successor]),
   receive
     {key, Qref, PeerPid} ->
+      io:format("called key, Qref = ~w, PeerPid = ~w ~n", [Qref, PeerPid]),
       PeerPid ! {Qref, MyKey},
       node(MyKey, Predecessor, Successor);
     {notify, New} ->
+      io:format("called notify, new = ~w ~n", [New]),
       Pred = notify(New, MyKey, Predecessor),
       node(MyKey, Pred, Successor);
     {request, Peer} ->
+      io:format("called request, Peer = ~w ~n", [Peer]),
       request(Peer, Predecessor),
       node(MyKey, Predecessor, Successor);
     {status, Pred} ->
+      io:format("called status, Pred = ~w ~n", [Pred]),
+
       Succ = stabilize(Pred, MyKey, Successor),
       node(MyKey, Predecessor, Succ);
     stabilize ->
-        stabilize(Successor),
-        node(MyKey, Predecessor, Successor);
+      io:format("called stabilize ~n"),
+      stabilize(Successor),
+      node(MyKey, Predecessor, Successor);
     probe ->
       create_probe(MyKey, Successor),
       node(MyKey, Predecessor, Successor);
@@ -48,7 +55,6 @@ node(MyKey, Predecessor, Successor) ->
     {probe, RefKey, Nodes, T} ->
       forward_probe(RefKey, [MyKey|Nodes], T, Successor),
       node(MyKey, Predecessor, Successor)
-
 end.
 
 notify({Nkey, Npid}, MyKey, Predecessor) ->
@@ -68,12 +74,12 @@ stabilize(Pred, MyKey, Successor) ->
   {Skey, Spid} = Successor,
   case Pred of
     nil ->
-      Spid ! {notify, MyKey},
+      Spid ! {notify, {MyKey, self()}},
       Successor;
     {MyKey, _} ->
       Successor;
     {Skey, _} ->
-      Spid ! {notify, MyKey},
+      Spid ! {notify, {MyKey, self()}},
       Successor;
     {Xkey, Xpid} ->
       case key:between(Xkey, MyKey, Skey) of
@@ -81,7 +87,7 @@ stabilize(Pred, MyKey, Successor) ->
           self() ! stabilize,
           {Xkey, Xpid};
         false ->
-          Spid ! {notify, MyKey},
+          Spid ! {notify, {MyKey, self()}},
           Successor
       end
   end.
@@ -100,16 +106,16 @@ request(Peer, Predecessor) ->
 
 
 connect(MyKey, nil) ->
-  {ok, {... , ...}}; %% TODO: ADD SOME CODE
+  {ok, {MyKey , self()}};
 connect(_, PeerPid) ->
   Qref = make_ref(),
   PeerPid ! {key, Qref, self()},
   receive
     {Qref, Skey} ->
-      {ok, {... , ...}} %% TODO: ADD SOME CODE
-after ?Timeout ->
-io:format("Timeout: no response from ~w~n", [PeerPid])
-end.
+      {ok, {Skey, PeerPid}}
+  after ?Timeout ->
+    io:format("Timeout: no response from ~w~n", [PeerPid])
+  end.
 
 create_probe(MyKey, {_, Spid}) ->
   Spid ! {probe, MyKey, [MyKey], erlang:now()},
