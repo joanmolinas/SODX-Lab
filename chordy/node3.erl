@@ -24,26 +24,21 @@ schedule_stabilize() ->
   timer:send_interval(?Stabilize, self(), stabilize).
 
 node(MyKey, Predecessor, Successor, Next, Store) ->
-  io:format("In node, MyKey = ~w, Pred = ~w and Successor = ~w ~n", [MyKey, Predecessor, Successor]),
   receive
     {key, Qref, PeerPid} ->
-      io:format("called key, Qref = ~w, PeerPid = ~w ~n", [Qref, PeerPid]),
       PeerPid ! {Qref, MyKey},
       node(MyKey, Predecessor, Successor, Next, Store);
     {notify, New} ->
-      io:format("called notify, new = ~w ~n", [New]),
       {Pred, NewStore} = notify(New, MyKey, Predecessor, Store),
       node(MyKey, Pred, Successor, Next, NewStore);
     {request, Peer} ->
         request(Peer, Predecessor, Successor),
         node(MyKey, Predecessor, Successor, Next, Store);
     {status, Pred, Nx} ->
-      io:format("called status, Pred = ~w ~n", [Pred]),
 
       {Succ, Nxt} = stabilize(Pred, Nx, MyKey, Successor),
       node(MyKey, Predecessor, Succ, Nxt, Store);
     stabilize ->
-      io:format("called stabilize ~n"),
       stabilize(Successor),
       node(MyKey, Predecessor, Successor, Next, Store);
     probe ->
