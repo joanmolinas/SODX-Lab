@@ -78,7 +78,7 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
 
 down(Ref, {_,_, Ref}, Successor, Next) ->
   {nil, Successor, Next};
-down(Ref, Predecessor, {_, Ref, _}, {Nkey, Npid}) ->
+down(Ref, Predecessor, {_, _, Ref}, {Nkey, Npid}) ->
   self() ! stabilize,
   {Predecessor, monitor_node3(Nkey, Npid), nil}.
 
@@ -91,7 +91,7 @@ request(Peer, Predecessor, {Skey, Spid, _}) ->
       Peer ! {status, {Pkey, Ppid}, {Skey, Spid}}
   end.
 
-add(Key, Value, Qref, Client, MyKey, {Pkey, _}, {_, Spid}, Store) ->
+add(Key, Value, Qref, Client, MyKey, {Pkey, _, _}, {_, Spid, _}, Store) ->
   case key:between(Key, Pkey, MyKey) of
     true ->
       Added = storage:add(Key, Value, Store) ,
@@ -102,7 +102,7 @@ add(Key, Value, Qref, Client, MyKey, {Pkey, _}, {_, Spid}, Store) ->
       Store
   end.
 
-lookup(Key, Qref, Client, MyKey, {Pkey, _}, {_, Spid}, Store) ->
+lookup(Key, Qref, Client, MyKey, {Pkey, _, _}, {_, Spid, _}, Store) ->
   case key:between(Key, Pkey, MyKey) of
     true ->
       Result = storage:lookup(Key, Store),
@@ -116,7 +116,7 @@ notify({Nkey, Npid}, MyKey, Predecessor, Store) ->
     nil ->
       Keep = handover(Store, MyKey, Nkey, Npid),
       {{Nkey, Npid}, Keep};
-    {Pkey, _} ->
+    {Pkey, _, _} ->
       case key:between(Nkey, Pkey, MyKey) of
         true ->
           Keep = handover(Store, MyKey, Nkey, Npid),
