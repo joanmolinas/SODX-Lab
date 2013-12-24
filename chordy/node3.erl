@@ -43,10 +43,14 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
       Pred = monitor_node(PKey, PPid),
       node(MyKey, Pred, Successor, Next, NewStore);
     {request, Peer} ->
-        request(Peer, Predecessor, Successor),
-        node(MyKey, Predecessor, Successor, Next, Store);
+      request(Peer, Predecessor, Successor),
+      node(MyKey, Predecessor, Successor, Next, Store);
     {status, Pred, Nx} ->
-      {Succ, Nxt} = stabilize(Pred, Nx, MyKey, Successor),
+      {{SKey, SPid}, {NKey, NPid}} = stabilize(Pred, Nx, MyKey, Successor),
+      demonitor_node(Successor),
+      demonitor_node(Next),
+      Succ = monitor_node(SKey, SPid),
+      Nxt = monitor_node(NKey, NPid),
       node(MyKey, Predecessor, Succ, Nxt, Store);
     stabilize ->
       stabilize(Successor),
@@ -133,7 +137,7 @@ handover(Store, MyKey, Nkey, Npid) ->
   Keep.
 
 stabilize(Pred, Next, MyKey, Successor) ->
-  {Skey, Spid} = Successor,
+  {Skey, Spid, _} = Successor,
   case Pred of
     nil ->
       Spid ! {notify, {MyKey, self()}},
@@ -154,28 +158,28 @@ stabilize(Pred, Next, MyKey, Successor) ->
       end
   end.
 
-stabilize({_, Spid}) ->
+stabilize({_, Spid, _}) ->
   Spid ! {request, self()}.
 
 connect(MyKey, nil) ->
-  {ok, {MyKey, self()}};
+  {ok, {MyKey, self(), nil}};
 connect(_, PeerPid) ->
   Qref = make_ref(),
   PeerPid ! {key, Qref, self()},
   receive
     {Qref, Skey} ->
-      {ok, {Skey, PeerPid}}
+      {ok, {Skey, PeerPid, monitor(PeerPid)}}
   after ?Timeout ->
     io:format("Timeout: no response from ~w~n", [PeerPid])
   end.
 
-create_probe(MyKey, {_, Spid}, Store) ->
+create_probe(MyKey, {_, Spid, _}, Store) ->
   Spid ! {probe, MyKey, [MyKey], erlang:now()},
   io:format("Create probe ~w! Store = ~w ~n", [MyKey, Store]).
 remove_probe(MyKey, Nodes, T) ->
   Time = timer:now_diff(erlang:now(), T),
   io:format("Received probe ~w in ~w ms Ring: ~w~n", [MyKey, Time, Nodes]).
-forward_probe(RefKey, Nodes, T, {_, Spid}, Store) ->
+forward_probe(RefKey, Nodes, T, {_, Spid, _}, Store) ->
   Spid ! {probe, RefKey, Nodes, T},
   io:format("Forward probe ~w! Store = ~w ~n", [RefKey, Store]).
 
