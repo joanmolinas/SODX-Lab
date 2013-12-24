@@ -23,13 +23,13 @@ init(MyKey, PeerPid) ->
 schedule_stabilize() ->
   timer:send_interval(?Stabilize, self(), stabilize).
 
-demonitor_node(nil) ->
+demonitor_thing(nil) ->
   ok;
-demonitor_node(Node) ->
+demonitor_thing(Node) ->
   {_, _, OldRef} = Node,
   demonit(OldRef).
 
-monitor_node(Key, Pid) ->
+monitor_thing(Key, Pid) ->
   {Key, Pid, monit(Pid)}.
 
 node(MyKey, Predecessor, Successor, Next, Store) ->
@@ -39,8 +39,8 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
       node(MyKey, Predecessor, Successor, Next, Store);
     {notify, New} ->
       {{PKey, PPid}, NewStore} = notify(New, MyKey, Predecessor, Store),
-      demonitor_node(Predecessor),
-      Pred = monitor_node(PKey, PPid),
+      demonitor_thing(Predecessor),
+      Pred = monitor_thing(PKey, PPid),
       node(MyKey, Pred, Successor, Next, NewStore);
     {request, Peer} ->
       request(Peer, Predecessor, Successor),
@@ -79,9 +79,7 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
 down(Ref, {_,_, Ref}, Successor, Next) ->
   {nil, Successor, Next};
 down(Ref, Predecessor, {_, Ref, _}, {Nkey, Npid}) ->
-  %% TODO: ADD SOME CODE
-  %% TODO: ADD SOME CODE
-  {Predecessor, {Nkey, Npid, Nref}, nil}.
+  {Predecessor, monitor_thing(Nkey, Npid), nil}.
 
 
 request(Peer, Predecessor, {Skey, Spid, _}) ->
@@ -146,9 +144,10 @@ stabilize(Pred, Next, MyKey, Successor) ->
     {Xkey, Xpid} ->
       case key:between(Xkey, MyKey, Skey) of
         true ->
-          demonitor_node(Next),
+          demonitor_thing(Next),
           self() ! stabilize,
-          {monitor_node(Xkey, Xpid), Successor};
+          demonitor_thing(Successor),
+          {monitor_thing(Xkey, Xpid), Successor};
         false ->
           Spid ! {notify, {MyKey, self()}},
           {Successor, Next}
