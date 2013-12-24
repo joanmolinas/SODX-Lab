@@ -147,7 +147,7 @@ stabilize(Pred, Next, MyKey, Successor) ->
           demonitor_thing(Next),
           self() ! stabilize,
           demonitor_thing(Successor),
-          {monitor_thing(Xkey, Xpid), Successor};
+          {monitor_thing(Xkey, Xpid), {Skey, Spid}};
         false ->
           Spid ! {notify, {MyKey, self()}},
           {Successor, Next}
