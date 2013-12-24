@@ -60,7 +60,10 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
 
     {handover, Elements} ->
       Merged = storage:merge(Store, Elements),
-      node(MyKey, Predecessor, Successor, Next, Merged)
+      node(MyKey, Predecessor, Successor, Next, Merged);
+    {'DOWN', Ref, process, _, _} ->
+      {Pred, Succ, Nxt} = down(Ref, Predecessor, Successor, Next),
+      node(MyKey, Pred, Succ, Nxt, Store)
   end.
 
 request(Peer, Predecessor, {Skey, Spid}) ->
