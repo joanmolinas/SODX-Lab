@@ -30,7 +30,7 @@ demonitor_node(Node) ->
   demonit(OldRef).
 
 monitor_node(Key, Pid) ->
-  {Key, Pid, monitor(Pid)}.
+  {Key, Pid, monit(Pid)}.
 
 node(MyKey, Predecessor, Successor, Next, Store) ->
   receive
@@ -46,11 +46,7 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
       request(Peer, Predecessor, Successor),
       node(MyKey, Predecessor, Successor, Next, Store);
     {status, Pred, Nx} ->
-      {{SKey, SPid}, {NKey, NPid}} = stabilize(Pred, Nx, MyKey, Successor),
-      demonitor_node(Successor),
-      demonitor_node(Next),
-      Succ = monitor_node(SKey, SPid),
-      Nxt = monitor_node(NKey, NPid),
+      {Succ, Nxt} = stabilize(Pred, Nx, MyKey, Successor),
       node(MyKey, Predecessor, Succ, Nxt, Store);
     stabilize ->
       stabilize(Successor),
@@ -80,19 +76,19 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
       node(MyKey, Pred, Succ, Nxt, Store)
   end.
 
-down(Ref, {_, Ref, _}, Successor, Next) ->
+down(Ref, {_,_, Ref}, Successor, Next) ->
   {nil, Successor, Next};
 down(Ref, Predecessor, {_, Ref, _}, {Nkey, Npid}) ->
   %% TODO: ADD SOME CODE
   %% TODO: ADD SOME CODE
-  {Predecessor, {Nkey, Nref, Npid}, nil}.
+  {Predecessor, {Nkey, Npid, Nref}, nil}.
 
 
-request(Peer, Predecessor, {Skey, Spid}) ->
+request(Peer, Predecessor, {Skey, Spid, _}) ->
   case Predecessor of
     nil ->
       Peer ! {status, nil, {Skey, Spid}};
-    {Pkey, Ppid} ->
+    {Pkey, Ppid, _} ->
       Peer ! {status, {Pkey, Ppid}, {Skey, Spid}}
   end.
 
@@ -150,8 +146,9 @@ stabilize(Pred, Next, MyKey, Successor) ->
     {Xkey, Xpid} ->
       case key:between(Xkey, MyKey, Skey) of
         true ->
+          demonitor_node(Next),
           self() ! stabilize,
-          {{Xkey, Xpid}, Successor};
+          {monitor_node(Xkey, Xpid), Successor};
         false ->
           Spid ! {notify, {MyKey, self()}},
           {Successor, Next}
@@ -168,7 +165,7 @@ connect(_, PeerPid) ->
   PeerPid ! {key, Qref, self()},
   receive
     {Qref, Skey} ->
-      {ok, {Skey, PeerPid, monitor(PeerPid)}}
+      {ok, {Skey, PeerPid, monit(PeerPid)}}
   after ?Timeout ->
     io:format("Timeout: no response from ~w~n", [PeerPid])
   end.
