@@ -23,6 +23,15 @@ init(MyKey, PeerPid) ->
 schedule_stabilize() ->
   timer:send_interval(?Stabilize, self(), stabilize).
 
+demonitor_node(nil) ->
+  ok;
+demonitor_node(Node) ->
+  {_, _, OldRef} = Node,
+  demonit(OldRef).
+
+monitor_node(Key, Pid) ->
+  {Key, Pid, monitor(Pid)}.
+
 node(MyKey, Predecessor, Successor, Next, Store) ->
   receive
     {key, Qref, PeerPid} ->
@@ -30,15 +39,13 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
       node(MyKey, Predecessor, Successor, Next, Store);
     {notify, New} ->
       {{PKey, PPid}, NewStore} = notify(New, MyKey, Predecessor, Store),
-      {_, _, OldRef} = Predecessor,
-      demonit(OldRef),
-      Pred = {PKey, PPid, monit(NewStore)},
+      demonitor_node(Predecessor),
+      Pred = monitor_node(PKey, PPid),
       node(MyKey, Pred, Successor, Next, NewStore);
     {request, Peer} ->
         request(Peer, Predecessor, Successor),
         node(MyKey, Predecessor, Successor, Next, Store);
     {status, Pred, Nx} ->
-
       {Succ, Nxt} = stabilize(Pred, Nx, MyKey, Successor),
       node(MyKey, Predecessor, Succ, Nxt, Store);
     stabilize ->
