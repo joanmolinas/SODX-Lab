@@ -29,7 +29,10 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
       PeerPid ! {Qref, MyKey},
       node(MyKey, Predecessor, Successor, Next, Store);
     {notify, New} ->
-      {Pred, NewStore} = notify(New, MyKey, Predecessor, Store),
+      {{PKey, PPid}, NewStore} = notify(New, MyKey, Predecessor, Store),
+      {_, _, OldRef} = Predecessor,
+      demonit(OldRef),
+      Pred = {PKey, PPid, monit(NewStore)},
       node(MyKey, Pred, Successor, Next, NewStore);
     {request, Peer} ->
         request(Peer, Predecessor, Successor),
@@ -66,6 +69,14 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
       node(MyKey, Pred, Succ, Nxt, Store)
   end.
 
+down(Ref, {_, Ref, _}, Successor, Next) ->
+  {nil, Successor, Next};
+down(Ref, Predecessor, {_, Ref, _}, {Nkey, Npid}) ->
+  %% TODO: ADD SOME CODE
+  %% TODO: ADD SOME CODE
+  {Predecessor, {Nkey, Nref, Npid}, nil}.
+
+
 request(Peer, Predecessor, {Skey, Spid}) ->
   case Predecessor of
     nil ->
@@ -86,7 +97,7 @@ add(Key, Value, Qref, Client, MyKey, {Pkey, _}, {_, Spid}, Store) ->
   end.
 
 lookup(Key, Qref, Client, MyKey, {Pkey, _}, {_, Spid}, Store) ->
-  case key:between(Key, Pkey, MyKey) of %% TODO: ADD SOME CODE
+  case key:between(Key, Pkey, MyKey) of
     true ->
       Result = storage:lookup(Key, Store),
       Client ! {Qref, Result};
@@ -160,3 +171,10 @@ remove_probe(MyKey, Nodes, T) ->
 forward_probe(RefKey, Nodes, T, {_, Spid}, Store) ->
   Spid ! {probe, RefKey, Nodes, T},
   io:format("Forward probe ~w! Store = ~w ~n", [RefKey, Store]).
+
+monit(Pid) ->
+  erlang:monitor(process, Pid).
+demonit(nil) ->
+  ok;
+demonit(MonitorRef) ->
+  erlang:demonitor(MonitorRef, [flush]).
