@@ -79,6 +79,7 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
 down(Ref, {_,_, Ref}, Successor, Next) ->
   {nil, Successor, Next};
 down(Ref, Predecessor, {_, Ref, _}, {Nkey, Npid}) ->
+  self() ! stabilize,
   {Predecessor, monitor_node3(Nkey, Npid), nil}.
 
 
