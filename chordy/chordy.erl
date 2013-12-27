@@ -4,7 +4,8 @@
 -export([connect/1, test/3]).
 % 'Peer' stands for the node used to join the system
 connect(Peer) ->
-  spawn(fun() -> wait(Peer) end).
+  register(p, spawn(fun() -> wait(Peer) end)).
+
 wait(Peer) ->
   receive
     {add, Key, Value} ->

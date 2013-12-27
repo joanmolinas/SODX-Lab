@@ -1,4 +1,4 @@
--module(node3).
+-module(node4).
 
 -export([start/1, start/2]).
 
@@ -10,7 +10,7 @@ start(MyKey) ->
 
 start(MyKey, PeerPid) ->
   timer:start(),
-  register(node3, spawn(fun() -> init(MyKey, PeerPid) end)).
+  register(node4, spawn(fun() -> init(MyKey, PeerPid) end)).
 
 init(MyKey, PeerPid) ->
   Predecessor = nil,
@@ -37,28 +37,30 @@ node(MyKey, Predecessor, Successor, Next, Store, Replica) ->
     {key, Qref, PeerPid} ->
       PeerPid ! {Qref, MyKey},
       node(MyKey, Predecessor, Successor, Next, Store, Replica);
-    {notify, New} ->
+    {notify, New, PredSt} ->
       {{PKey, PPid}, NewStore} = notify(New, MyKey, Predecessor, Store),
       demonitor_node3(Predecessor),
       Pred = monitor_node3(PKey, PPid),
-      node(MyKey, Pred, Successor, Next, NewStore, Replica);
+      {_, Spid, _} = Successor,
+      Spid ! {actualize, NewStore},
+      node(MyKey, Pred, Successor, Next, NewStore, PredSt);
     {request, Peer} ->
       request(Peer, Predecessor, Successor),
       node(MyKey, Predecessor, Successor, Next, Store, Replica);
     {status, Pred, Nx} ->
-      {Succ, Nxt} = stabilize(Pred, Nx, MyKey, Successor),
+      {Succ, Nxt} = stabilize(Pred, Nx, MyKey, Successor, Store),
       node(MyKey, Predecessor, Succ, Nxt, Store, Replica);
     stabilize ->
       stabilize(Successor),
       node(MyKey, Predecessor, Successor, Next, Store, Replica);
     probe ->
-      create_probe(MyKey, Successor, Store),
+      create_probe(MyKey, Successor, Store, Replica),
       node(MyKey, Predecessor, Successor, Next, Store, Replica);
     {probe, MyKey, Nodes, T} ->
       remove_probe(MyKey, Nodes, T),
       node(MyKey, Predecessor, Successor, Next, Store, Replica);
     {probe, RefKey, Nodes, T} ->
-      forward_probe(RefKey, [MyKey|Nodes], T, Successor, Store),
+      forward_probe(RefKey, [MyKey|Nodes], T, Successor, Store, Replica),
       node(MyKey, Predecessor, Successor, Next, Store, Replica);
 
     {add, Key, Value, Qref, Client} ->
@@ -71,23 +73,28 @@ node(MyKey, Predecessor, Successor, Next, Store, Replica) ->
 
     {handover, Elements} ->
       Merged = storage:merge(Store, Elements),
+      {_, Spid, _} = Successor,
+      Spid ! {actualize, Merged},
       node(MyKey, Predecessor, Successor, Next, Merged, Replica);
       
     {'DOWN', Ref, process, _, _} ->
-      {Pred, Succ, Nxt} = down(Ref, Predecessor, Successor, Next),
-      node(MyKey, Pred, Succ, Nxt, Store, Replica);
+      {Pred, Succ, Nxt, NStore, NRep} = down(Ref, Predecessor, Successor, Next, Store, Replica),
+      node(MyKey, Pred, Succ, Nxt, NStore, NRep);
+      
+    {actualize, Rep} ->
+      node(MyKey, Predecessor, Successor, Next, Store, Rep);
       
     {replicate, Key,Value} ->
+      Added =  storage:add(Key, Value, Replica),
+      node(MyKey, Predecessor, Successor, Next, Store, Added)
     
   end.
 
-down(Ref, {Pr,_, Ref}, Successor, Next) ->
-  io:format("Predecessor ~w Down~n",[Pr]),
-  {nil, Successor, Next};
-down(Ref, Predecessor, {Sc, _, Ref}, {Nkey, Npid}) ->
-  io:format("Successor ~w Down~n",[Sc]),
+down(Ref, {_, _, Ref}, Successor, Next, Store, Replica) ->
+  {nil, Successor, Next, storage:merge(Store, Replica), nil};
+down(Ref, Predecessor, {_, _, Ref}, {Nkey, Npid}, Store, Replica) ->
   self() ! stabilize,
-  {Predecessor, monitor_node3(Nkey, Npid), nil}.
+  {Predecessor, monitor_node3(Nkey, Npid), nil, Store, Replica}.
 
 
 request(Peer, Predecessor, {Skey, Spid, _}) ->
@@ -103,6 +110,7 @@ add(Key, Value, Qref, Client, MyKey, {Pkey, _, _}, {_, Spid, _}, Store) ->
     true ->
       Added = storage:add(Key, Value, Store) ,
       Client ! {Qref, ok},
+      Spid ! {replicate, Key, Value},
       Added;
     false ->
       Spid ! {add, Key, Value, Qref, Client},
@@ -138,16 +146,16 @@ handover(Store, MyKey, Nkey, Npid) ->
   Npid ! {handover, Leave},
   Keep.
 
-stabilize(Pred, Next, MyKey, Successor) ->
+stabilize(Pred, Next, MyKey, Successor, Store) ->
   {Skey, Spid, _} = Successor,
   case Pred of
     nil ->
-      Spid ! {notify, {MyKey, self()}},
+      Spid ! {notify, {MyKey, self()}, Store},
       {Successor, Next};
     {MyKey, _} ->
       {Successor, Next};
     {Skey, _} ->
-      Spid ! {notify, {MyKey, self()}},
+      Spid ! {notify, {MyKey, self()}, Store},
       {Successor, Next};
     {Xkey, Xpid} ->
       case key:between(Xkey, MyKey, Skey) of
@@ -156,7 +164,7 @@ stabilize(Pred, Next, MyKey, Successor) ->
           demonitor_node3(Successor),
           {monitor_node3(Xkey, Xpid), {Skey, Spid}};
         false ->
-          Spid ! {notify, {MyKey, self()}},
+          Spid ! {notify, {MyKey, self()}, Store},
           {Successor, Next}
       end
   end.
@@ -176,15 +184,15 @@ connect(_, PeerPid) ->
     io:format("Timeout: no response from ~w~n", [PeerPid])
   end.
 
-create_probe(MyKey, {_, Spid, _}, Store) ->
+create_probe(MyKey, {_, Spid, _}, Store, Replica) ->
   Spid ! {probe, MyKey, [MyKey], erlang:now()},
-  io:format("Create probe ~w! Store = ~w ~n", [MyKey, Store]).
+  io:format("Create probe ~w! Store = ~w Replica = ~w ~n", [MyKey, Store, Replica]).
 remove_probe(MyKey, Nodes, T) ->
   Time = timer:now_diff(erlang:now(), T),
   io:format("Received probe ~w in ~w ms Ring: ~w~n", [MyKey, Time, Nodes]).
-forward_probe(RefKey, Nodes, T, {_, Spid, _}, Store) ->
+forward_probe(RefKey, Nodes, T, {_, Spid, _}, Store, Replica) ->
   Spid ! {probe, RefKey, Nodes, T},
-  io:format("Forward probe ~w! Store = ~w ~n", [RefKey, Store]).
+  io:format("Forward probe ~w! Store = ~w Replica = ~w ~n", [RefKey, Store, Replica]).
 
 monit(Pid) ->
   erlang:monitor(process, Pid).
