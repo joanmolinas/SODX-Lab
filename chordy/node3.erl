@@ -10,7 +10,7 @@ start(MyKey) ->
 
 start(MyKey, PeerPid) ->
   timer:start(),
-  register(node2, spawn(fun() -> init(MyKey, PeerPid) end)).
+  register(node3, spawn(fun() -> init(MyKey, PeerPid) end)).
 
 init(MyKey, PeerPid) ->
   Predecessor = nil,
@@ -76,9 +76,11 @@ node(MyKey, Predecessor, Successor, Next, Store) ->
       node(MyKey, Pred, Succ, Nxt, Store)
   end.
 
-down(Ref, {_,_, Ref}, Successor, Next) ->
+down(Ref, {Pr,_, Ref}, Successor, Next) ->
+  io:format("Predecessor ~w Down~n",[Pr]),
   {nil, Successor, Next};
-down(Ref, Predecessor, {_, _, Ref}, {Nkey, Npid}) ->
+down(Ref, Predecessor, {Sc, _, Ref}, {Nkey, Npid}) ->
+  io:format("Successor ~w Down~n",[Sc]),
   self() ! stabilize,
   {Predecessor, monitor_node3(Nkey, Npid), nil}.
 
