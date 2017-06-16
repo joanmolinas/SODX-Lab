@@ -1,2 +1,2 @@
 # SODX-Lab
-Pràctiques de l'assignatura SODX
+Practices from the subject SODX
