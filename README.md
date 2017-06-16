@@ -1,4 +1,2 @@
-practiques-sodx
-===============
-
-Les practiques de SODX
+# SODX-Lab
+Pràctiques de l'assignatura SODX
